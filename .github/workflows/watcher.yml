@@ -63,3 +63,4 @@ jobs:
             else
               python watcher.py $mode
             fi
+          fi
