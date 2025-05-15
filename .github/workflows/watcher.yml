@@ -1,0 +1,31 @@
+name: Watch Annotation Tasks
+
+on:
+  # schedule:
+  #   - cron: '*/5 * * * *'
+  workflow_dispatch: # 🔹 Manual trigger from GitHub
+
+jobs:
+  run-watcher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run watcher
+        env:
+          TWILIO_SID: ${{ secrets.TWILIO_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          TWILIO_TO: ${{ secrets.TWILIO_TO }}
+          SESSION_COOKIE: ${{ secrets.SESSION_COOKIE }}
+          ANNOTATION_URL: ${{ secrets.ANNOTATION_URL }}
+        run: python watcher.py
