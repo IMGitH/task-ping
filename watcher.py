@@ -42,7 +42,7 @@ class AnnotationWatcher:
         lines = [format_task(task) for task in tasks]
         msg = f"{title}\n\n" + "\n".join(lines)
         if include_footer:
-            msg += "\n\n🔗 *Go to tasks:* https://www.dataannotation.tech/worker"
+            msg += f"\n\n🔗 *Go to tasks:* {self.annotation_url}"
         return msg
 
 
