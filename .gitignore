@@ -1,0 +1,3 @@
+.env
+ping-venv/
+task_cache.json
