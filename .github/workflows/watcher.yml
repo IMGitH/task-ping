@@ -2,8 +2,18 @@ name: Watch Annotation Tasks
 
 on:
   # schedule:
-  #   - cron: '*/5 * * * *'
-  workflow_dispatch: # 🔹 Manual trigger from GitHub
+  #   - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Select task watcher mode"
+        required: true
+        default: "Check for new tasks"
+        type: choice
+        options:
+          - "Check for new tasks"
+          - "Send current task list"
+          - "Run both"
 
 jobs:
   run-watcher:
@@ -17,6 +27,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache task cache
+        uses: actions/cache@v4
+        with:
+          path: task_cache.json
+          key: task-cache
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -28,4 +44,22 @@ jobs:
           TWILIO_TO: ${{ secrets.TWILIO_TO }}
           SESSION_COOKIE: ${{ secrets.SESSION_COOKIE }}
           ANNOTATION_URL: ${{ secrets.ANNOTATION_URL }}
-        run: python watcher.py
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Running mode 1 (cron)"
+            python watcher.py 1
+          else
+            echo "Dispatch mode: ${{ inputs.mode }}"
+            case "${{ inputs.mode }}" in
+              "Check for new tasks") mode=1 ;;
+              "Send current task list") mode=2 ;;
+              "Run both") mode=both ;;
+              *) echo "❌ Unknown mode" && exit 1 ;;
+            esac
+
+            if [ "$mode" = "both" ]; then
+              python watcher.py 1
+              python watcher.py 2
+            else
+              python watcher.py $mode
+            fi
