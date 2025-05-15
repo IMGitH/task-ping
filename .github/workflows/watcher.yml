@@ -1,7 +1,21 @@
 name: Watch Annotation Tasks
 
 on:
-  workflow_dispatch:  # ✅ Enables manual run from the GitHub UI
+  schedule:
+    - cron: '*/15 5-18 * * *'  # Every 15 min from 08:00–21:00 Israel time (UTC+3) 
+    # Israel is UTC+3 during daylight saving (spring–autumn)
+    # So 08:00–21:00 Israel time = 05:00–18:00 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Select task watcher mode"
+        required: true
+        default: "Check for new tasks"
+        type: choice
+        options:
+          - "Check for new tasks"
+          - "Send current task list"
+          - "Run both"
 
 jobs:
   run-watcher:
@@ -15,5 +29,40 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Placeholder
-        run: echo "This is a placeholder step"
+      - name: Cache task cache
+        uses: actions/cache@v4
+        with:
+          path: task_cache.json
+          key: task-cache
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run watcher
+        env:
+          TWILIO_SID: ${{ secrets.TWILIO_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          TWILIO_TO: ${{ secrets.TWILIO_TO }}
+          SESSION_COOKIE: ${{ secrets.SESSION_COOKIE }}
+          ANNOTATION_URL: ${{ secrets.ANNOTATION_URL }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Running mode 1 (cron)"
+            python watcher.py 1
+          else
+            echo "Dispatch mode: ${{ inputs.mode }}"
+            case "${{ inputs.mode }}" in
+              "Check for new tasks") mode=1 ;;
+              "Send current task list") mode=2 ;;
+              "Run both") mode=both ;;
+              *) echo "❌ Unknown mode" && exit 1 ;;
+            esac
+
+            if [ "$mode" = "both" ]; then
+              python watcher.py 1
+              python watcher.py 2
+            else
+              python watcher.py $mode
+            fi
+          fi
