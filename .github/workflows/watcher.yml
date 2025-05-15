@@ -1,1 +1,19 @@
+name: Watch Annotation Tasks
 
+on:
+  workflow_dispatch:  # ✅ Enables manual run from the GitHub UI
+
+jobs:
+  run-watcher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Placeholder
+        run: echo "This is a placeholder step"
