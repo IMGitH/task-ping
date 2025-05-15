@@ -42,7 +42,7 @@ Don't include the `Cookie:` part — only the raw value.
 
 1. Push this repo to GitHub
 2. Set all required secrets under **Settings > Secrets and Variables > Actions**
-3. The watcher will run every 5 minutes via GitHub Actions
+3. The watcher will run every 15 minutes via GitHub Actions
 
 ## Next
 
