@@ -85,29 +85,37 @@ class AnnotationWatcher:
             print(f"- {name}")
 
         previous_tasks = self.load_cached_tasks()  # List of (id, name)
-        prev_ids = {t[0] for t in previous_tasks}
-        new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
 
+        # Extract ID sets
+        prev_ids = {t[0] for t in previous_tasks}
+        curr_ids = {t[0] for t in current_tasks}
+
+        # Detect new and removed tasks
+        new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
+        removed_tasks = [t for t in previous_tasks if t[0] not in curr_ids]
+
+        # Log removed (no WhatsApp)
+        if removed_tasks:
+            print("[INFO] The following tasks were removed from the dashboard:")
+            for _, name in removed_tasks:
+                print(f"\t- {name}")
+
+        # Handle new tasks
         if new_tasks:
-            print("[+] New tasks detected:")
+            print("\n[+] New tasks detected:")
             for _, name in new_tasks:
                 print(f"\t+ {name}")
 
-            message = self._format_task_list("📌 *New annotation tasks available!*", [t[1] for t in new_tasks], include_footer=True)
+            message = self._format_task_list(
+                "📌 *New annotation tasks available!*",
+                [t[1] for t in new_tasks],
+                include_footer=True
+            )
             self.send_whatsapp(message)
             self.save_cached_tasks(current_tasks)
         else:
-            print("[-] No new tasks.")
+            print("\n[-] No new tasks.")
 
-    def send_current_tasks(self):
-        current_tasks = self.get_current_tasks()
-        if current_tasks:
-            message = self._format_task_list("📋 *Current tasks:*", current_tasks, include_footer=True)
-        else:
-            message = "✅ *No current tasks found.*"
-
-        print(message)
-        self.send_whatsapp(message)
 
 
 if __name__ == "__main__":
