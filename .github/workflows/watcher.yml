@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: task_cache.json
-          key: task-cache
+          key: tasks-cache
 
       - name: Install dependencies
         run: pip install -r requirements.txt
