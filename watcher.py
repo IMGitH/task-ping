@@ -66,7 +66,7 @@ class AnnotationWatcher:
         data = json.loads(decoded_json)
 
         projects = data.get("dashboardMerchTargeting", {}).get("projects", [])
-        return [proj["name"] for proj in projects if proj.get("availableTasksFor", "0") != "0"]
+        return [(proj["id"], proj["name"]) for proj in projects if proj.get("availableTasksFor", "0") != "0"]
 
     def load_cached_tasks(self):
         if os.path.exists(self.cache_file):
@@ -79,20 +79,21 @@ class AnnotationWatcher:
             json.dump(tasks, f)
 
     def check_for_new_tasks(self):
-        current_tasks = self.get_current_tasks()
+        current_tasks = self.get_current_tasks()  # List of (id, name)
         print("[*] Current tasks:")
-        for t in current_tasks:
-            print(f"- {t}")
+        for _, name in current_tasks:
+            print(f"- {name}")
 
-        previous_tasks = self.load_cached_tasks()
-        new_tasks = list(set(current_tasks) - set(previous_tasks))
+        previous_tasks = self.load_cached_tasks()  # List of (id, name)
+        prev_ids = {t[0] for t in previous_tasks}
+        new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
 
         if new_tasks:
             print("[+] New tasks detected:")
-            for t in new_tasks:
-                print(f"\t+ {t}")
+            for _, name in new_tasks:
+                print(f"\t+ {name}")
 
-            message = self._format_task_list("📌 *New annotation tasks available!*", new_tasks, include_footer=True)
+            message = self._format_task_list("📌 *New annotation tasks available!*", [t[1] for t in new_tasks], include_footer=True)
             self.send_whatsapp(message)
             self.save_cached_tasks(current_tasks)
         else:
