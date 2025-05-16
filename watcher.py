@@ -2,6 +2,7 @@ import os
 import json
 import html
 import requests
+from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
 from twilio.rest import Client
 from dotenv import load_dotenv
@@ -23,6 +24,7 @@ class AnnotationWatcher:
             "Cookie": self.session_cookie,
             "User-Agent": "Mozilla/5.0"
         }
+        self.twilio_balance_url = f"https://api.twilio.com/2010-04-01/Accounts/{self.twilio_sid}/Balance.json"
 
     def send_whatsapp(self, message: str):
         client = Client(self.twilio_sid, self.twilio_token)
@@ -115,8 +117,20 @@ class AnnotationWatcher:
             self.save_cached_tasks(current_tasks)
         else:
             print("\n[-] No new tasks.")
-
-
+    
+    def log_twilio_balance(self):
+        try:
+            response = requests.get(
+                self.twilio_balance_url,
+                auth=HTTPBasicAuth(self.twilio_sid, self.twilio_token)
+            )
+            if response.status_code == 200:
+                data = response.json()
+                print(f"\n[Twilio] Balance: {data['balance']} {data['currency']}")
+            else:
+                print(f"\n[Twilio] Could not fetch balance. HTTP {response.status_code}")
+        except Exception as e:
+            print(f"\n[Twilio] Error fetching balance: {e}")
 
 if __name__ == "__main__":
     import sys
@@ -126,6 +140,7 @@ if __name__ == "__main__":
 
     if mode == "1":
         watcher.check_for_new_tasks()
+        watcher.log_twilio_balance()
     elif mode == "2":
         watcher.send_current_tasks()
     else:
