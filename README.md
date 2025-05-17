@@ -24,7 +24,7 @@ Can be loaded via .env (locally) or GitHub Actions Secrets.
 
 | Variable            | Description                                               |
 |---------------------|-----------------------------------------------------------|
-| ANNOTATION_URL      | Task page URL (e.g., https://www.dataannotation.tech/tasks) |
+| ANNOTATION_URL      | Task page URL (e.g., https://app.dataannotation.tech/workers/projects) |
 | SESSION_COOKIE      | Your full session cookie (copied from the Application tab in DevTools under `https://www.dataannotation.tech`; must include HttpOnly cookies that are not visible via JavaScript) |
 | TWILIO_SID          | Your Twilio Account SID (from https://www.twilio.com/console) |
 | TWILIO_AUTH_TOKEN   | Your Twilio Auth Token |
