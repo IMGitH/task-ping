@@ -44,7 +44,7 @@ SESSION_COOKIE=_session_id=abc123; auth_token=xyz456
 TWILIO_SID=ACxxxxxxxxxxxxxxxxxxxxxxxx  
 TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxx  
 TWILIO_FROM=whatsapp:+14155238886  
-TWILIO_TO=whatsapp:+972501234567
+TWILIO_TO=whatsapp:+<your_verified_number>
 
 Get your session cookie from DevTools > Application > Cookies (must include HttpOnly cookies).
 
