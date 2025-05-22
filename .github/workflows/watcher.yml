@@ -16,6 +16,10 @@ on:
           - "Check for tasks updates"
           - "Send current task list"
           - "Run both"
+    push:
+      branches: [ "main" ]
+    pull_request:
+      branches: [ "main" ]
 
 jobs:
   run-watcher:
