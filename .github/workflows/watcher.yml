@@ -2,9 +2,7 @@ name: Watch Annotation Tasks
 
 on:
   schedule:
-    - cron: '*/15 4-18 * * *'  # Every 15 min from 07:00–21:00 Israel time (UTC+3) 
-    # Israel is UTC+3 during daylight saving (spring–autumn)
-    # So 08:00–21:00 Israel time = 05:00–18:00 UTC
+    - cron: '*/15 4-18 * * *'  # Every 15 min from 07:00–21:00 Israel time (UTC+3)
   workflow_dispatch:
     inputs:
       mode:
@@ -24,6 +22,7 @@ on:
 jobs:
   run-watcher:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -33,11 +32,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Cache task cache
+      - name: Restore task cache
+        id: cache-restore
         uses: actions/cache@v4
         with:
           path: task_cache.json
-          key: tasks-cache
+          key: tasks-cache-${{ github.run_id }}
+          restore-keys: |
+            tasks-cache-
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -70,3 +72,10 @@ jobs:
               python watcher.py $mode
             fi
           fi
+
+      - name: Save updated cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: task_cache.json
+          key: tasks-cache-${{ github.run_id }}
