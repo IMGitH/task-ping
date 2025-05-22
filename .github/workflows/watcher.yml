@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: task_cache.json
-          key: tasks-cache-latest
+          key: tasks-cache-${{ github.run_id }}  # unlikely to exist
           restore-keys: |
             tasks-cache-
 
@@ -74,7 +74,7 @@ jobs:
           fi
 
       - name: Save updated cache
-        if: steps.cache-restore.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: task_cache.json
