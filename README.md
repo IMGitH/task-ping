@@ -81,3 +81,8 @@ You must use the same WhatsApp number you joined with.
 
 - GitHub runner is stateless — use actions/cache to persist task history  
 - You can refresh your cookie any time by logging in again and copying updated values from DevTools
+- To keep the Twilio Sandbox session alive, a scheduled GitHub Actions workflow sends a daily WhatsApp ping at 08:00 Israel time:
+  - Requires you to manually send a WhatsApp message to the sandbox number at least once every 24h to keep the window open
+  - Workflow file: .github/workflows/keep-twilio-sandbox-alive.yml
+  - Script file: .github/scripts/send_twilio_ping.py
+
