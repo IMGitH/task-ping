@@ -29,6 +29,7 @@ class AnnotationWatcher:
     def send_whatsapp(self, message: str):
         client = Client(self.twilio_sid, self.twilio_token)
         client.messages.create(body=message, from_=self.twilio_from, to=self.twilio_to)
+        print(f"[+] WhatsApp notification sent with message:\n{message}")
 
     def _format_task_list(self, title: str, tasks: list[str], include_footer: bool = False) -> str:
         def format_task(task: str) -> str:
@@ -80,7 +81,7 @@ class AnnotationWatcher:
         with open(self.cache_file, "w") as f:
             json.dump(tasks, f)
 
-    def check_for_new_tasks(self):
+    def check_for_updates_in_tasks(self):
         current_tasks = self.get_current_tasks()  # List of (id, name)
         print("[*] Current tasks:")
         for _, name in current_tasks:
@@ -96,28 +97,31 @@ class AnnotationWatcher:
         new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
         removed_tasks = [t for t in previous_tasks if t[0] not in curr_ids]
 
-        # Log removed (no WhatsApp)
+        # Logging
         if removed_tasks:
             print("[INFO] The following tasks were removed from the dashboard:")
             for _, name in removed_tasks:
                 print(f"\t- {name}")
-
-        # Handle new tasks
         if new_tasks:
             print("\n[+] New tasks detected:")
             for _, name in new_tasks:
                 print(f"\t+ {name}")
+        if not new_tasks and not removed_tasks:
+            print("\n[-] No new or removed tasks.")
 
-            message = self._format_task_list(
-                "📌 *New annotation tasks available!*",
-                [t[1] for t in new_tasks],
-                include_footer=True
-            )
+        # Prepare message if there's anything to report
+        if new_tasks or removed_tasks:
+            parts = []
+            if new_tasks:
+                parts.append(self._format_task_list("📌 *New annotation tasks available!*", [t[1] for t in new_tasks]))
+            if removed_tasks:
+                parts.append(self._format_task_list("❌ *Removed annotation tasks:*", [t[1] for t in removed_tasks]))
+            message = "\n\n".join(parts) + f"\n\n🔗 *Go to tasks:* {self.annotation_url}"
+
             self.send_whatsapp(message)
             self.save_cached_tasks(current_tasks)
-        else:
-            print("\n[-] No new tasks.")
-    
+
+
     def log_twilio_balance(self):
         try:
             response = requests.get(
@@ -139,7 +143,7 @@ if __name__ == "__main__":
     watcher = AnnotationWatcher()
 
     if mode == "1":
-        watcher.check_for_new_tasks()
+        watcher.check_for_updates_in_tasks()
         watcher.log_twilio_balance()
     elif mode == "2":
         watcher.send_current_tasks()
