@@ -16,10 +16,10 @@ on:
           - "Check for tasks updates"
           - "Send current task list"
           - "Run both"
-    push:
-      branches: [ "main" ]
-    pull_request:
-      branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   run-watcher:
@@ -51,7 +51,7 @@ jobs:
           SESSION_COOKIE: ${{ secrets.SESSION_COOKIE }}
           ANNOTATION_URL: ${{ secrets.ANNOTATION_URL }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "Running mode 1 (cron)"
             python watcher.py 1
           else
