@@ -2,7 +2,7 @@ name: Watch Annotation Tasks
 
 on:
   schedule:
-    - cron: '*/15 5-18 * * *'  # Every 15 min from 08:00–21:00 Israel time (UTC+3) 
+    - cron: '*/15 4-18 * * *'  # Every 15 min from 07:00–21:00 Israel time (UTC+3) 
     # Israel is UTC+3 during daylight saving (spring–autumn)
     # So 08:00–21:00 Israel time = 05:00–18:00 UTC
   workflow_dispatch:
@@ -10,12 +10,16 @@ on:
       mode:
         description: "Select task watcher mode"
         required: true
-        default: "Check for new tasks"
+        default: "Check for tasks updates"
         type: choice
         options:
-          - "Check for new tasks"
+          - "Check for tasks updates"
           - "Send current task list"
           - "Run both"
+    push:
+      branches: [ "main" ]
+    pull_request:
+      branches: [ "main" ]
 
 jobs:
   run-watcher:
@@ -53,7 +57,7 @@ jobs:
           else
             echo "Dispatch mode: ${{ inputs.mode }}"
             case "${{ inputs.mode }}" in
-              "Check for new tasks") mode=1 ;;
+              "Check for tasks updates") mode=1 ;;
               "Send current task list") mode=2 ;;
               "Run both") mode=both ;;
               *) echo "❌ Unknown mode" && exit 1 ;;
