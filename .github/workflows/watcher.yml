@@ -74,9 +74,8 @@ jobs:
           fi
 
       - name: Save updated cache
-        if: always()
+        if: steps.cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: task_cache.json
-          key: tasks-cache-latest
-          
+          key: tasks-cache-${{ github.run_id }}
