@@ -64,12 +64,14 @@ jobs:
               "Run both") mode=both ;;
               *) echo "❌ Unknown mode" && exit 1 ;;
             esac
+
             if [ "$mode" = "both" ]; then
               python watcher.py 1
               python watcher.py 2
             else
               python watcher.py $mode
             fi
+          fi
 
       - name: Save updated cache
         if: always()
