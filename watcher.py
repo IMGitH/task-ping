@@ -134,5 +134,12 @@ if __name__ == "__main__":
     if mode == "1":
         watcher.check_for_updates_in_tasks()
         watcher.log_twilio_balance()
+    elif mode == "2":
+        current_tasks = watcher.get_current_tasks()
+        print("[*] Manually sending current tasks...")
+    
+        for _, name in current_tasks:
+            watcher.send_whatsapp_template(name, watcher.annotation_url)
+    
     else:
-        print(f"[!] Unknown mode '{mode}', use '1'.")
+        print(f"[!] Unknown mode '{mode}', use '1' or '2'.")
