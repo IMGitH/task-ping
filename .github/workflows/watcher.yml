@@ -1,81 +1,138 @@
-name: Watch Annotation Tasks
+import os
+import json
+import html
+import requests
+from requests.auth import HTTPBasicAuth
+from bs4 import BeautifulSoup
+from twilio.rest import Client
+from dotenv import load_dotenv
 
-on:
-  schedule:
-    - cron: '*/15 4-18 * * *'  # Every 15 min from 07:00–21:00 Israel time (UTC+3)
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "Select task watcher mode"
-        required: true
-        default: "Check for tasks updates"
-        type: choice
-        options:
-          - "Check for tasks updates"
-          - "Send current task list"
-          - "Run both"
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
-jobs:
-  run-watcher:
-    runs-on: ubuntu-latest
+class AnnotationWatcher:
+    def __init__(self):
+        load_dotenv()
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+        self.annotation_url = os.getenv("ANNOTATION_URL")
+        self.session_cookie = os.getenv("SESSION_COOKIE")
+        self.twilio_sid = os.getenv("TWILIO_SID")
+        self.twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+        self.twilio_from = os.getenv("TWILIO_FROM")  # Format: whatsapp:+14155238886
+        self.twilio_to = os.getenv("TWILIO_TO")      # Format: whatsapp:+9725xxxxxxx
+        self.cache_file = "task_cache.json"
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+        self.headers = {
+            "Cookie": self.session_cookie,
+            "User-Agent": "Mozilla/5.0"
+        }
+        self.twilio_balance_url = f"https://api.twilio.com/2010-04-01/Accounts/{self.twilio_sid}/Balance.json"
 
-      - name: Restore task cache
-        id: cache-restore
-        uses: actions/cache@v4
-        with:
-          path: task_cache.json
-          key: tasks-cache-${{ github.run_id }}  # unlikely to exist
-          restore-keys: |
-            tasks-cache-
+    def send_whatsapp_template(self, task_name: str, task_url: str):
+        print(f"[+] Sending WhatsApp template for task: {task_name}")
+        client = Client(self.twilio_sid, self.twilio_token)
+        client.messages.create(
+            from_=self.twilio_from,
+            to=self.twilio_to,
+            messaging_product="whatsapp",
+            template={
+                "name": "task_update_alert",
+                "language": { "code": "en" },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            { "type": "text", "text": task_name },
+                            { "type": "text", "text": task_url }
+                        ]
+                    }
+                ]
+            }
+        )
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+    def get_current_tasks(self):
+        response = requests.get(self.annotation_url, headers=self.headers)
+        if response.status_code != 200:
+            raise Exception(f"Failed to load task page. Status: {response.status_code}")
+        if "Login" in response.text:
+            raise Exception("You're not logged in. SESSION_COOKIE is invalid or expired.")
 
-      - name: Run watcher
-        env:
-          TWILIO_SID: ${{ secrets.TWILIO_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
-          TWILIO_TO: ${{ secrets.TWILIO_TO }}
-          SESSION_COOKIE: ${{ secrets.SESSION_COOKIE }}
-          ANNOTATION_URL: ${{ secrets.ANNOTATION_URL }}
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Running mode 1 (cron)"
-            python watcher.py 1
-          else
-            echo "Dispatch mode: ${{ inputs.mode }}"
-            case "${{ inputs.mode }}" in
-              "Check for tasks updates") mode=1 ;;
-              "Send current task list") mode=2 ;;
-              "Run both") mode=both ;;
-              *) echo "❌ Unknown mode" && exit 1 ;;
-            esac
+        soup = BeautifulSoup(response.text, "html.parser")
+        root_div = soup.find("div", id="workers/WorkerProjectsTable-hybrid-root")
+        if not root_div:
+            raise Exception("Could not find task container in page.")
 
-            if [ "$mode" = "both" ]; then
-              python watcher.py 1
-              python watcher.py 2
-            else
-              python watcher.py $mode
-            fi
-          fi
+        raw_json = root_div.get("data-props")
+        if not raw_json:
+            raise Exception("No data-props attribute found.")
 
-      - name: Save updated cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: task_cache.json
-          key: tasks-cache-${{ github.run_id }}
+        decoded_json = html.unescape(raw_json)
+        data = json.loads(decoded_json)
+
+        projects = data.get("dashboardMerchTargeting", {}).get("projects", [])
+        return [(proj["id"], proj["name"]) for proj in projects if proj.get("availableTasksFor", "0") != "0"]
+
+    def load_cached_tasks(self):
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, "r") as f:
+                return json.load(f)
+        return []
+
+    def save_cached_tasks(self, tasks):
+        with open(self.cache_file, "w") as f:
+            json.dump(tasks, f)
+
+    def check_for_updates_in_tasks(self):
+        current_tasks = self.get_current_tasks()
+        print("[*] Current tasks:")
+        for _, name in current_tasks:
+            print(f"- {name}")
+
+        previous_tasks = self.load_cached_tasks()
+
+        prev_ids = {t[0] for t in previous_tasks}
+        curr_ids = {t[0] for t in current_tasks}
+
+        new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
+        removed_tasks = [t for t in previous_tasks if t[0] not in curr_ids]
+
+        if removed_tasks:
+            print("[INFO] Removed tasks:")
+            for _, name in removed_tasks:
+                print(f"\t- {name}")
+        if new_tasks:
+            print("\n[+] New tasks detected:")
+            for _, name in new_tasks:
+                print(f"\t+ {name}")
+
+        if new_tasks:
+            for _, name in new_tasks:
+                self.send_whatsapp_template(name, self.annotation_url)
+            self.save_cached_tasks(current_tasks)
+        else:
+            print("[-] No new tasks to notify.")
+
+    def log_twilio_balance(self):
+        try:
+            response = requests.get(
+                self.twilio_balance_url,
+                auth=HTTPBasicAuth(self.twilio_sid, self.twilio_token)
+            )
+            if response.status_code == 200:
+                data = response.json()
+                print(f"\n[Twilio] Balance: {data['balance']} {data['currency']}")
+            else:
+                print(f"\n[Twilio] Could not fetch balance. HTTP {response.status_code}")
+        except Exception as e:
+            print(f"\n[Twilio] Error fetching balance: {e}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    mode = sys.argv[1] if len(sys.argv) > 1 else "1"
+    watcher = AnnotationWatcher()
+
+    if mode == "1":
+        watcher.check_for_updates_in_tasks()
+        watcher.log_twilio_balance()
+    else:
+        print(f"[!] Unknown mode '{mode}', use '1'.")
