@@ -16,8 +16,8 @@ class AnnotationWatcher:
         self.session_cookie = os.getenv("SESSION_COOKIE")
         self.twilio_sid = os.getenv("TWILIO_SID")
         self.twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.twilio_from = os.getenv("TWILIO_FROM")
-        self.twilio_to = os.getenv("TWILIO_TO")
+        self.twilio_from = os.getenv("TWILIO_FROM")  # Format: whatsapp:+14155238886
+        self.twilio_to = os.getenv("TWILIO_TO")      # Format: whatsapp:+9725xxxxxxx
         self.cache_file = "task_cache.json"
 
         self.headers = {
@@ -26,28 +26,27 @@ class AnnotationWatcher:
         }
         self.twilio_balance_url = f"https://api.twilio.com/2010-04-01/Accounts/{self.twilio_sid}/Balance.json"
 
-    def send_whatsapp(self, message: str):
+    def send_whatsapp_template(self, task_name: str, task_url: str):
+        print(f"[+] Sending WhatsApp template for task: {task_name}")
         client = Client(self.twilio_sid, self.twilio_token)
-        client.messages.create(body=message, from_=self.twilio_from, to=self.twilio_to)
-        print(f"[+] WhatsApp notification sent with message:\n{message}")
-
-    def _format_task_list(self, title: str, tasks: list[str], include_footer: bool = False) -> str:
-        def format_task(task: str) -> str:
-            if ':' in task:
-                head, tail = task.split(':', 1)
-                return f"▫️ *{head.strip()}:* {tail.strip()}"
-            elif '-' in task:
-                head, tail = task.split('-', 1)
-                return f"▫️ *{head.strip()} -* {tail.strip()}"
-            else:
-                return f"▫️ *{task.strip()}*"
-
-        lines = [format_task(task) for task in tasks]
-        msg = f"{title}\n\n" + "\n".join(lines)
-        if include_footer:
-            msg += f"\n\n🔗 *Go to tasks:* {self.annotation_url}"
-        return msg
-
+        client.messages.create(
+            from_=self.twilio_from,
+            to=self.twilio_to,
+            messaging_product="whatsapp",
+            template={
+                "name": "task_update_alert",
+                "language": { "code": "en" },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            { "type": "text", "text": task_name },
+                            { "type": "text", "text": task_url }
+                        ]
+                    }
+                ]
+            }
+        )
 
     def get_current_tasks(self):
         response = requests.get(self.annotation_url, headers=self.headers)
@@ -82,45 +81,34 @@ class AnnotationWatcher:
             json.dump(tasks, f)
 
     def check_for_updates_in_tasks(self):
-        current_tasks = self.get_current_tasks()  # List of (id, name)
+        current_tasks = self.get_current_tasks()
         print("[*] Current tasks:")
         for _, name in current_tasks:
             print(f"- {name}")
 
-        previous_tasks = self.load_cached_tasks()  # List of (id, name)
+        previous_tasks = self.load_cached_tasks()
 
-        # Extract ID sets
         prev_ids = {t[0] for t in previous_tasks}
         curr_ids = {t[0] for t in current_tasks}
 
-        # Detect new and removed tasks
         new_tasks = [t for t in current_tasks if t[0] not in prev_ids]
         removed_tasks = [t for t in previous_tasks if t[0] not in curr_ids]
 
-        # Logging
         if removed_tasks:
-            print("[INFO] The following tasks were removed from the dashboard:")
+            print("[INFO] Removed tasks:")
             for _, name in removed_tasks:
                 print(f"\t- {name}")
         if new_tasks:
             print("\n[+] New tasks detected:")
             for _, name in new_tasks:
                 print(f"\t+ {name}")
-        if not new_tasks and not removed_tasks:
-            print("\n[-] No new or removed tasks.")
 
-        # Prepare message if there's anything to report
-        if new_tasks or removed_tasks:
-            parts = []
-            if new_tasks:
-                parts.append(self._format_task_list("📌 *New annotation tasks available!*", [t[1] for t in new_tasks]))
-            if removed_tasks:
-                parts.append(self._format_task_list("❌ *Removed annotation tasks:*", [t[1] for t in removed_tasks]))
-            message = "\n\n".join(parts) + f"\n\n🔗 *Go to tasks:* {self.annotation_url}"
-
-            self.send_whatsapp(message)
+        if new_tasks:
+            for _, name in new_tasks:
+                self.send_whatsapp_template(name, self.annotation_url)
             self.save_cached_tasks(current_tasks)
-
+        else:
+            print("[-] No new tasks to notify.")
 
     def log_twilio_balance(self):
         try:
@@ -136,6 +124,7 @@ class AnnotationWatcher:
         except Exception as e:
             print(f"\n[Twilio] Error fetching balance: {e}")
 
+
 if __name__ == "__main__":
     import sys
 
@@ -146,6 +135,11 @@ if __name__ == "__main__":
         watcher.check_for_updates_in_tasks()
         watcher.log_twilio_balance()
     elif mode == "2":
-        watcher.send_current_tasks()
+        current_tasks = watcher.get_current_tasks()
+        print("[*] Manually sending current tasks...")
+    
+        for _, name in current_tasks:
+            watcher.send_whatsapp_template(name, watcher.annotation_url)
+    
     else:
         print(f"[!] Unknown mode '{mode}', use '1' or '2'.")

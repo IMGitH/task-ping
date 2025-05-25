@@ -40,7 +40,6 @@ jobs:
           key: tasks-cache-${{ github.run_id }}  # unlikely to exist
           restore-keys: |
             tasks-cache-
-
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -64,7 +63,6 @@ jobs:
               "Run both") mode=both ;;
               *) echo "❌ Unknown mode" && exit 1 ;;
             esac
-
             if [ "$mode" = "both" ]; then
               python watcher.py 1
               python watcher.py 2
@@ -72,7 +70,6 @@ jobs:
               python watcher.py $mode
             fi
           fi
-
       - name: Save updated cache
         if: always()
         uses: actions/cache/save@v4
