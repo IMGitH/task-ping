@@ -1,8 +1,8 @@
 name: Keep Twilio Sandbox Alive
 
 on:
-  schedule:
-    - cron: '0 5 * * *'  # 05:00 UTC = 08:00 Israel time
+  # schedule:
+  #   - cron: '0 5 * * *'  # 05:00 UTC = 08:00 Israel time
   workflow_dispatch:
 
 jobs:
